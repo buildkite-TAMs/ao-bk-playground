@@ -10,8 +10,8 @@ steps:
 
   - label: ":docker: Build and smoke test"
     key: "compose-smoke-test"
-    concurrency: 1
-    concurrency_group: "nasa-image-app"
+    concurrency: 1 ## limits on how many builds can run concurrently for this step
+    concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
     secrets:
       API_TOKEN: NASA_API_TOKEN
     command: |

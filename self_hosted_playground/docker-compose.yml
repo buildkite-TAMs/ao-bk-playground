@@ -1,4 +1,16 @@
 services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: bk_app
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    networks:
+      - app-network
+
   server:
     build:
       context: ./server

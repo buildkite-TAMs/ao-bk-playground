@@ -1,0 +1,27 @@
+ steps:
+    - label: ":pipeline: Upload pipeline"
+      command: buildkite-agent pipeline upload
+      agents: 
+        queue: "default"
+    
+    - label: ":docker: Validate Compose"
+      command: docker compose config
+
+    - label: ":docker: Build and smoke test"
+      key: "compose-smoke-test"
+      concurrency: 1
+      concurrency_group: "nasa-image-app"
+      secrets:
+        API_TOKEN: NASA_API_TOKEN
+      command: |
+        set -euo pipefail
+
+        cleanup() {
+          docker compose down --volumes --remove-orphans
+        }
+
+        trap cleanup EXIT
+
+        docker compose up --build --detach
+        curl --fail http://localhost:3000/api/nasaimage
+        curl --fail http://localhost:8080

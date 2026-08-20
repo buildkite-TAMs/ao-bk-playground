@@ -6,8 +6,6 @@
       command: docker compose config
 
     - label: ":docker: Build and smoke test"
-      concurrency: 1
-      concurrency_group: "nasa-image-app"
       secrets:
         API_TOKEN: NASA_API_TOKEN
       command: |

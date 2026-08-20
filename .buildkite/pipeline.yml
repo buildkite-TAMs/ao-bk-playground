@@ -1,7 +1,4 @@
- steps:
-    - label: ":pipeline: Upload pipeline"
-      command: buildkite-agent pipeline upload
-    
+ steps:    
     - label: ":docker: Validate Compose"
       command: docker compose config
 

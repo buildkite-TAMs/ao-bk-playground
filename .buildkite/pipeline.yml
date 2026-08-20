@@ -14,6 +14,9 @@ steps:
     concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
     secrets:
       API_TOKEN: NASA_API_TOKEN
+      API_HOST: "localhost"
+      MONGO_HOST: "mongodb://mongo:27017/bk"
+      PORT: 3000 
     command: |
       set -euo pipefail
 

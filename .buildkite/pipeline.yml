@@ -1,8 +1,6 @@
  steps:
     - label: ":pipeline: Upload pipeline"
       command: buildkite-agent pipeline upload
-      agents: 
-        queue: "default"
     
     - label: ":docker: Validate Compose"
       command: docker compose config

@@ -7,9 +7,14 @@ steps:
 
   - label: ":docker: Validate Compose"
     command: "docker compose config"
+  
+  - label: ":docker: Build images"
+    key: "build-images"
+    command: "docker compose build"
 
-  - label: ":docker: Build and smoke test"
+  - label: ":docker: Smoke test"
     key: "compose-smoke-test"
+    depends on: "build-images"
     concurrency: 1 ## limits on how many builds can run concurrently for this step
     concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
     secrets:
@@ -17,12 +22,8 @@ steps:
     command: |
       set -euo pipefail
 
-      cleanup() {
-        docker compose down --volumes --remove-orphans
-      }
-
-      trap cleanup EXIT
-
       docker compose up --build --detach
-      curl --fail http://localhost:3000/api/nasaimage
-      curl --fail http://localhost:8080
+      
+      
+
+

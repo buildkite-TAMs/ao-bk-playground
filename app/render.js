@@ -1,5 +1,6 @@
 async function renderNasaImage() {
   const imageElement = document.getElementById('nasa-image');
+  const videoElement = document.getElementById('nasa-video');
   const errorElement = document.getElementById('image-error');
   const loadingElement = document.getElementById('image-loading');
   const retryButton = document.getElementById('retry-image');
@@ -10,13 +11,13 @@ async function renderNasaImage() {
   const highResLink = document.getElementById('high-res-link');
   const dateInput = document.getElementById('apod-date');
 
-  if (!imageElement) {
-    console.error('Unable to render NASA image: #nasa-image was not found');
+  if (!imageElement || !videoElement) {
+    console.error('Unable to render NASA media: the image or video element was not found');
     return;
   }
 
   try {
-    imageElement.hidden = true;
+    resetMedia(imageElement, videoElement);
 
     if (loadingElement) {
       loadingElement.hidden = false;
@@ -47,33 +48,28 @@ async function renderNasaImage() {
     }
 
     const data = await response.json();
-    const nasaImage = data.item;
-    const imageUrl = nasaImage?.imageUrl;
+    const nasaMedia = data.item;
 
-    if (!imageUrl) {
-      throw new Error('The response did not contain an image URL');
+    if (!nasaMedia) {
+      throw new Error('The response did not contain NASA media');
     }
 
-    await loadImage(imageElement, imageUrl);
-    renderImageDetails(nasaImage, {
+    await renderMedia(nasaMedia, imageElement, videoElement);
+    renderImageDetails(nasaMedia, {
       titleElement,
       dateElement,
       explanationElement,
       attributionElement,
       highResLink
     });
-    if (dateInput && nasaImage.date) {
-      dateInput.value = nasaImage.date;
+    if (dateInput && nasaMedia.date) {
+      dateInput.value = nasaMedia.date;
     }
-    imageElement.alt = nasaImage.title
-      ? `${nasaImage.title}, NASA Astronomy Picture of the Day`
-      : 'NASA Astronomy Picture of the Day';
-    imageElement.hidden = false;
   } catch (error) {
-    imageElement.removeAttribute('src');
+    resetMedia(imageElement, videoElement);
 
     if (errorElement) {
-      errorElement.textContent = `Unable to load NASA image: ${error.message}`;
+      errorElement.textContent = `Unable to load NASA media: ${error.message}`;
     }
 
     console.error(error);
@@ -86,6 +82,42 @@ async function renderNasaImage() {
       retryButton.hidden = false;
     }
   }
+}
+
+async function renderMedia(nasaMedia, imageElement, videoElement) {
+  if (nasaMedia.mediaType === 'video') {
+    const videoUrl = getSafeMediaUrl(nasaMedia.mediaUrl);
+
+    if (!videoUrl) {
+      throw new Error('The response did not contain a valid video URL');
+    }
+
+    videoElement.title = nasaMedia.title
+      ? `${nasaMedia.title}, NASA Astronomy Picture of the Day video`
+      : 'NASA Astronomy Picture of the Day video';
+    await loadFrame(videoElement, videoUrl);
+    videoElement.hidden = false;
+    return;
+  }
+
+  const imageUrl = getSafeMediaUrl(nasaMedia.imageUrl);
+
+  if (!imageUrl) {
+    throw new Error('The response did not contain a valid image URL');
+  }
+
+  imageElement.alt = nasaMedia.title
+    ? `${nasaMedia.title}, NASA Astronomy Picture of the Day`
+    : 'NASA Astronomy Picture of the Day';
+  await loadImage(imageElement, imageUrl);
+  imageElement.hidden = false;
+}
+
+function resetMedia(imageElement, videoElement) {
+  imageElement.hidden = true;
+  imageElement.removeAttribute('src');
+  videoElement.hidden = true;
+  videoElement.removeAttribute('src');
 }
 
 function renderImageDetails(nasaImage, elements) {
@@ -115,9 +147,29 @@ function renderImageDetails(nasaImage, elements) {
     attributionElement.hidden = false;
   }
 
-  if (highResLink && nasaImage.hdImageUrl) {
-    highResLink.href = nasaImage.hdImageUrl;
+  const actionUrl = nasaImage.mediaType === 'video'
+    ? getSafeMediaUrl(nasaImage.mediaUrl)
+    : getSafeMediaUrl(nasaImage.hdImageUrl);
+
+  if (highResLink && actionUrl) {
+    highResLink.href = actionUrl;
+    highResLink.textContent = nasaImage.mediaType === 'video'
+      ? 'Open video ↗'
+      : 'View high-resolution image ↗';
     highResLink.hidden = false;
+  }
+}
+
+function getSafeMediaUrl(value) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
   }
 }
 
@@ -139,6 +191,13 @@ function loadImage(imageElement, imageUrl) {
     imageElement.onload = resolve;
     imageElement.onerror = () => reject(new Error('The image could not be displayed'));
     imageElement.src = imageUrl;
+  });
+}
+
+function loadFrame(frameElement, videoUrl) {
+  return new Promise((resolve) => {
+    frameElement.onload = resolve;
+    frameElement.src = videoUrl;
   });
 }
 

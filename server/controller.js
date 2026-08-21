@@ -36,6 +36,7 @@ getImage = async(req, response) => {
       explanation: res.data.explanation,
       attribution: res.data.copyright || 'NASA',
       mediaType: res.data.media_type,
+      mediaUrl: res.data.url,
       imageUrl: res.data.thumbnail_url || res.data.url,
       hdImageUrl: res.data.hdurl || res.data.url
     };

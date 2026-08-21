@@ -23,8 +23,8 @@ steps:
       set -euo pipefail
 
       docker compose up --build --detach
-      docker compose down --remove-orphans
-  # - label: "UI test"      
+  
+  # - label: "UI/API test"      
   #   key: "ui-test"
   #   depends_on: "compose-smoke-test"
   #   command: |

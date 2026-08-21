@@ -14,7 +14,7 @@ steps:
 
   - label: ":docker: Smoke test"
     key: "compose-smoke-test"
-    depends on: "build-images"
+    depends_on: "build-images"
     concurrency: 1 ## limits on how many builds can run concurrently for this step
     concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
     secrets:

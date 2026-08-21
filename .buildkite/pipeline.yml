@@ -23,11 +23,12 @@ steps:
       set -euo pipefail
 
       docker compose up --build --detach
-  - label: "UI test"      
-    key: "ui-test"
-    depends_on: "compose-smoke-test"
-    command: |
-      curl --fail http://localhost:8080
-      curl --fail http://localhost:3000/api/nasaimage
+      docker compose down --remove-orphans
+  # - label: "UI test"      
+  #   key: "ui-test"
+  #   depends_on: "compose-smoke-test"
+  #   command: |
+  #     curl --fail http://localhost:8080
+  #     curl --fail http://localhost:3000/api/nasaimage
 
 

@@ -1,3 +1,6 @@
+
+![diagram](./excalidraw_image.png)
+
 # Buildkite Playground
 
 Buildkite Playground is a small Docker Compose application used to experiment with Buildkite CI. It displays NASA's Astronomy Picture of the Day (APOD), supports looking up an APOD by date, and includes a MongoDB-backed API for users and image ratings.

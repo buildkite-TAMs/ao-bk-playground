@@ -1,28 +1,38 @@
 steps:
-  - label: ":docker: Check Docker"
-    command: |
-      command -v docker
-      docker version
-      docker compose version
+  - key: "docker"
+    label: ":docker: Build, Login & Push"
+    commands:
+      - echo "Building Docker image"
+      - docker build --tag packages.buildkite.com/tam-sandbox/ao-bk-playground/ao-nasa:latest .
+      - echo "Logging into Buildkite Package Registry using OIDC"
+      - buildkite-agent oidc request-token --audience "https://packages.buildkite.com/tam-sandbox/ao-bk-playground" --lifetime 300 | docker login packages.buildkite.com/tam-sandbox/ao-bk-playground --username buildkite --password-stdin
+      - echo "Pushing Docker image to Buildkite Package Registry"
+      - docker push packages.buildkite.com/tam-sandbox/ao-bk-playground/ao-nasa:latest
 
-  - label: ":docker: Validate Compose"
-    command: "docker compose config"
+  # - label: ":docker: Check Docker"
+  #   command: |
+  #     command -v docker
+  #     docker version
+  #     docker compose version
+
+  # - label: ":docker: Validate Compose"
+  #   command: "docker compose config"
   
-  - label: ":docker: Build images"
-    key: "build-images"
-    command: "docker compose build"
+  # - label: ":docker: Build images"
+  #   key: "build-images"
+  #   command: "docker compose build"
 
-  - label: ":docker: Smoke test"
-    key: "compose-smoke-test"
-    depends_on: "build-images"
-    concurrency: 1 ## limits on how many builds can run concurrently for this step
-    concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
-    secrets:
-      API_TOKEN: NASA_API_TOKEN
-    command: |
-      set -euo pipefail
+  # - label: ":docker: Smoke test"
+  #   key: "compose-smoke-test"
+  #   depends_on: "build-images"
+  #   concurrency: 1 ## limits on how many builds can run concurrently for this step
+  #   concurrency_group: "nasa-image-app" ## the limits are tied to this group name, so all builds with the same group name will be limited
+  #   secrets:
+  #     API_TOKEN: NASA_API_TOKEN
+  #   command: |
+  #     set -euo pipefail
 
-      docker compose up --build --detach
+  #     docker compose up --build --detach
   
   # - label: "UI/API test"      
   #   key: "ui-test"

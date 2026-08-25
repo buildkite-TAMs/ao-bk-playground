@@ -22,23 +22,11 @@ services:
       - /usr/src/app/node_modules
     ports:
       - "3000:3000"
-    depends_on:
-      - mongo
     environment:
       APP_ENV: "${APP_ENV:-test}"
       API_HOST: "${API_HOST:-localhost}"
       PORT: "${PORT:-3000}"
       API_TOKEN: "${API_TOKEN}"
-      MONGO_HOST: "${MONGO_HOST:-mongodb://mongo:27017/bk}"
-    networks:
-      - app-network
-
-  mongo:
-    image: mongo
-    volumes:
-      - data-volume:/data/db
-    ports:
-      - "27017:27017"
     networks:
       - app-network
 

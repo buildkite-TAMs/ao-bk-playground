@@ -8,6 +8,7 @@ steps:
       - buildkite-agent oidc request-token --audience "https://packages.buildkite.com/tam-sandbox/ao-bk-playground" --lifetime 300 | docker login packages.buildkite.com/tam-sandbox/ao-bk-playground --username buildkite --password-stdin
       - echo "Pushing Docker image to Buildkite Package Registry"
       - docker push packages.buildkite.com/tam-sandbox/ao-bk-playground/ao-nasa:latest
+      
 
   # - label: ":docker: Check Docker"
   #   command: |

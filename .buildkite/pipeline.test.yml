@@ -1,8 +1,24 @@
-steps: 
-  - label: ":docker: Pull image from registry"
-    command: 
-      - echo "Pulling Docker image from bk registry"
-      - docker pull packages.buildkite.com/tam-sandbox/ao-bk-playground/app:latest
-      - docker pull packages.buildkite.com/tam-sandbox/ao-bk-playground/server:latest
-      
+env:
+  APP_URL: "http://localhost:80"
+  API_URL: "http://localhost:3000"
 
+steps:
+  - label: ":kubernetes: Test published images"
+    key: "test-published-images"
+    agents:
+      queue: "kubernetes"
+    image: "python:3.13-alpine"
+    command: |
+      set -eu
+      python3 tests/wait_for_services.py
+      python3 -m unittest -v tests.test_application
+    plugins:
+      - kubernetes:
+          sidecars:
+            - name: "app"
+              image: "packages.buildkite.com/tam-sandbox/ao-bk-playground/app:${IMAGE_TAG:-latest}"
+            - name: "server"
+              image: "packages.buildkite.com/tam-sandbox/ao-bk-playground/server:${IMAGE_TAG:-latest}"
+              env:
+                - name: "PORT"
+                  value: "3000"

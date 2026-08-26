@@ -1,5 +1,5 @@
 
-![diagram](./excalidraw_image.png)
+
 
 # Buildkite Playground
 

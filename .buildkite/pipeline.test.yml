@@ -1,0 +1,8 @@
+steps: 
+  - label: ":docker: Pull image from registry"
+    command: 
+      - echo "Pulling Docker image from bk registry"
+      - docker pull packages.buildkite.com/tam-sandbox/ao-bk-playground/app:latest
+      - docker pull packages.buildkite.com/tam-sandbox/ao-bk-playground/server:latest
+      
+

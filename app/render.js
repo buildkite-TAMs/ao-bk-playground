@@ -35,7 +35,7 @@ async function renderNasaImage() {
       highResLink.hidden = true;
     }
 
-    const apiUrl = new URL('http://localhost:3000/api/nasaimage');
+    const apiUrl = new URL('/api/nasaimage', window.location.origin);
 
     if (dateInput?.value) {
       apiUrl.searchParams.set('date', dateInput.value);

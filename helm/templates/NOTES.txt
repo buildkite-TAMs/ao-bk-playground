@@ -1,0 +1,14 @@
+Access the application with:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+  kubectl port-forward service/{{ include "nasa-image.fullname" . }}-app 8080:{{ .Values.app.service.port }}
+  open http://localhost:8080
+{{- end }}
+
+{{- if not (or .Values.secrets.existingSecret .Values.secrets.apiToken) }}
+WARNING: No NASA API token is configured. Set secrets.existingSecret or
+secrets.apiToken before calling /api/nasaimage.
+{{- end }}

@@ -1,0 +1,52 @@
+nameOverride: ""
+fullnameOverride: ""
+
+app:
+  replicaCount: 1
+  image:
+    repository: packages.buildkite.com/tam-sandbox/ao-bk-playground/app
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+  resources: {}
+
+server:
+  replicaCount: 1
+  image:
+    repository: packages.buildkite.com/tam-sandbox/ao-bk-playground/server
+    tag: latest
+    pullPolicy: Always
+  service:
+    port: 3000
+  appEnv: production
+  resources: {}
+
+# For 1Password, have the 1Password Operator create this Kubernetes Secret.
+# The Secret must contain the key configured by secretKey.
+secrets:
+  existingSecret: ""
+  secretKey: API_TOKEN
+  # Suitable only for local testing. Do not commit a real token here.
+  apiToken: ""
+
+# Add a registry pull secret here if the Buildkite package registry is private.
+imagePullSecrets: []
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: nasa-image.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

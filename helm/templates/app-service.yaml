@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nasa-image.fullname" . }}-app
+  labels:
+    {{- include "nasa-image.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: {{ .Values.app.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.app.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "nasa-image.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend

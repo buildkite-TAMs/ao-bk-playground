@@ -39,12 +39,77 @@ All steps target the agent queue named `kubernetes`. Deployment concurrency is
 limited to one job in the `nasa-image-test` group so two builds cannot mutate
 the same Helm release simultaneously.
 
+### Install the Kubernetes agent stack
+
+Kubernetes creates a `default` ServiceAccount automatically, but the Buildkite
+jobs should use a dedicated account with namespace-scoped deployment access.
+Create the namespaces and ServiceAccount first:
+
+```bash
+kubectl create namespace buildkite
+kubectl create namespace nasa-image
+kubectl create serviceaccount buildkite-agent --namespace buildkite
+```
+
+Grant that account permission to deploy the application chart:
+
+```bash
+kubectl create role buildkite-nasa-image-deployer \
+  --namespace nasa-image \
+  --verb=get,list,watch,create,update,patch,delete \
+  --resource=configmaps,secrets,services,deployments.apps,replicasets.apps,ingresses.networking.k8s.io
+
+kubectl create rolebinding buildkite-nasa-image-deployer \
+  --namespace nasa-image \
+  --role=buildkite-nasa-image-deployer \
+  --serviceaccount=buildkite:buildkite-agent
+```
+
+Install or upgrade the Agent Stack using a Buildkite cluster agent token:
+
+```bash
+helm upgrade --install agent-stack-k8s \
+  oci://ghcr.io/buildkite/helm/agent-stack-k8s \
+  --namespace buildkite \
+  --create-namespace \
+  --set agentToken="your_buildkite_cluster_agent_token" \
+  --set-json='config.tags=["queue=kubernetes"]' \
+  --set config.pod-spec-patch.serviceAccountName=buildkite-agent \
+  --set config.pod-spec-patch.automountServiceAccountToken=true \
+  --set-json='config.pod-spec-patch.containers=[]'
+```
+
+The Agent Stack chart schema requires `containers` to be present whenever
+`config.pod-spec-patch` is defined. Use an empty array when only setting the
+ServiceAccount. Omitting it produces this validation error:
+
+```text
+at '/config/pod-spec-patch': missing property 'containers'
+```
+
+Verify the release and permissions:
+
+```bash
+helm status agent-stack-k8s --namespace buildkite
+kubectl get deployments,pods,serviceaccounts --namespace buildkite
+
+kubectl auth can-i create deployments.apps \
+  --namespace nasa-image \
+  --as system:serviceaccount:buildkite:buildkite-agent
+
+kubectl auth can-i create secrets \
+  --namespace nasa-image \
+  --as system:serviceaccount:buildkite:buildkite-agent
+```
+
+Both authorization checks should return `yes`.
+
 ### Required Kubernetes setup
 
 Before running the test pipeline:
 
-1. Create the `nasa-image` namespace.
-2. Give the `kubernetes` queue's service account permission to manage the
+1. Confirm that the `nasa-image` namespace exists.
+2. Confirm that the `kubernetes` queue's service account can manage the
    chart's Deployments, Services, ConfigMaps, Secrets, and Helm release data in
    that namespace.
 3. Create a `nasa-api-token` Secret in the namespace with an `API_TOKEN` key.

@@ -33,7 +33,8 @@ The browser requests `GET /api/nasaimage` through Nginx. Nginx proxies the reque
 
 - Docker Engine or Docker Desktop
 - Docker Compose v2 (the `docker compose` command)
-- A [NASA API key](https://api.nasa.gov/)
+- A [NASA API key](https://api.nasa.gov/) stored in 1Password
+- The 1Password CLI (`op`), signed in to the account containing the key
 
 No local Node.js installation is needed when running the full stack with Docker Compose.
 
@@ -46,18 +47,18 @@ No local Node.js installation is needed when running the full stack with Docker 
    cd ao-bk-playground
    ```
 
-2. Create a `.env` file in the repository root:
+2. In 1Password, open the NASA credential and copy the API key field's secret
+   reference. It has this form:
 
-   ```dotenv
-   API_TOKEN=your_nasa_api_key
+   ```text
+   op://Private/NASA API/credential
    ```
 
-   `.env` is ignored by Git. Do not commit the NASA key.
-
-3. Build and start both services:
+3. Build and start both services, replacing the example reference with yours:
 
    ```bash
-   docker compose up --build
+   API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+     docker compose up --build
    ```
 
 4. Open [http://localhost:8080](http://localhost:8080) in a browser.
@@ -139,12 +140,13 @@ From the repository root, create the deployment namespace first:
 kubectl create namespace nasa-image
 ```
 
-Then create the NASA token Secret directly in that namespace:
+Then create the NASA token Secret directly in that namespace, replacing the
+example 1Password secret reference with yours:
 
 ```bash
 kubectl create secret generic nasa-api-token \
   --namespace nasa-image \
-  --from-literal=API_TOKEN="your_nasa_api_key"
+  --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')"
 ```
 
 If the Secret already exists and you need to replace its token, run:
@@ -152,7 +154,7 @@ If the Secret already exists and you need to replace its token, run:
 ```bash
 kubectl create secret generic nasa-api-token \
   --namespace nasa-image \
-  --from-literal=API_TOKEN="your_nasa_api_key" \
+  --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
   --dry-run=client \
   --output=yaml \
   | kubectl replace -f -
@@ -193,6 +195,8 @@ If the 1Password Kubernetes Operator manages the credential, configure it to
 create a Secret containing `API_TOKEN`, then set `secrets.existingSecret` to
 that Secret's name. Helm does not resolve 1Password share links or `op://`
 references on its own.
+The commands above resolve `op://` references with `op read` before invoking
+`kubectl` or Docker Compose.
 
 ## Test locally
 
@@ -204,7 +208,8 @@ The black-box tests in `tests/` expect the frontend at
 Start the application from the repository root:
 
 ```bash
-API_TOKEN="your_nasa_api_key" docker compose up --build --detach
+API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+  docker compose up --build --detach
 ```
 
 Wait for both services and run the tests:

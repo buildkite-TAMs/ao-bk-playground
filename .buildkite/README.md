@@ -7,6 +7,11 @@ This directory contains two pipeline definitions:
 - `pipeline.test.yml` validates the Helm chart, deploys the published images to
   Kubernetes, and runs black-box tests against the deployment.
 
+Commands that load stored credentials use 1Password CLI secret references in
+the form `op://Vault/Item/field`. Replace each example reference with the value
+from **Copy Secret Reference** in 1Password and sign in with `op signin` first.
+A `https://share.1password.com/...` share link is not an `op read` reference.
+
 ## Image publishing pipeline
 
 Configure the image-publishing pipeline to upload `.buildkite/pipeline.yml`.
@@ -65,14 +70,36 @@ kubectl create rolebinding buildkite-nasa-image-deployer \
   --serviceaccount=buildkite:buildkite-agent
 ```
 
-Install or upgrade the Agent Stack using a Buildkite cluster agent token:
+Store the Buildkite cluster agent token in 1Password and copy its secret
+reference. Create a Kubernetes Secret from that reference:
+
+```bash
+kubectl create secret generic buildkite-agent-stack \
+  --namespace buildkite \
+  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://Private/Buildkite Agent/credential')"
+```
+
+To replace an existing token, resolve the same 1Password reference and replace
+the Kubernetes Secret:
+
+```bash
+kubectl create secret generic buildkite-agent-stack \
+  --namespace buildkite \
+  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://Private/Buildkite Agent/credential')" \
+  --dry-run=client \
+  --output=yaml \
+  | kubectl replace -f -
+```
+
+Install or upgrade the Agent Stack using the Kubernetes Secret. The Helm
+command receives only the Secret name, not the token value:
 
 ```bash
 helm upgrade --install agent-stack-k8s \
   oci://ghcr.io/buildkite/helm/agent-stack-k8s \
   --namespace buildkite \
   --create-namespace \
-  --set agentToken="your_buildkite_cluster_agent_token" \
+  --set agentStackSecret=buildkite-agent-stack \
   --set-json='config.tags=["queue=kubernetes"]' \
   --set config.pod-spec-patch.serviceAccountName=buildkite-agent \
   --set config.pod-spec-patch.automountServiceAccountToken=true \

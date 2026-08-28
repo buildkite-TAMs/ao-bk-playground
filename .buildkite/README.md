@@ -6,6 +6,8 @@ This directory contains two pipeline definitions:
   Buildkite Packages.
 - `pipeline.test.yml` validates the Helm chart, deploys the published images to
   Kubernetes, and runs black-box tests against the deployment.
+- `agent-stack-values.yaml` keeps the non-secret Kubernetes Agent Stack
+  configuration consistent across installs and upgrades.
 
 Commands that load stored credentials use 1Password CLI secret references in
 the form `op://Vault/Item/field`. Replace each example reference with the value
@@ -91,19 +93,43 @@ kubectl create secret generic buildkite-agent-stack \
   | kubectl replace -f -
 ```
 
-Install or upgrade the Agent Stack using the Kubernetes Secret. The Helm
-command receives only the Secret name, not the token value:
+For a private GitHub repository checked out over HTTPS, create a second Secret
+containing Git credentials. Replace the example with your GitHub token's
+1Password secret reference:
+
+```bash
+printf 'https://x-access-token:%s@github.com\n' \
+  "$(op read 'op://Private/GitHub Buildkite/token')" \
+  | kubectl create secret generic github-git-credentials \
+      --namespace buildkite \
+      --from-file=.git-credentials=/dev/stdin
+```
+
+To update those credentials later:
+
+```bash
+printf 'https://x-access-token:%s@github.com\n' \
+  "$(op read 'op://Private/GitHub Buildkite/token')" \
+  | kubectl create secret generic github-git-credentials \
+      --namespace buildkite \
+      --from-file=.git-credentials=/dev/stdin \
+      --dry-run=client \
+      --output=yaml \
+  | kubectl replace -f -
+```
+
+Install or upgrade the Agent Stack with the checked-in values file. Pinning the
+chart version and using this file ensures each upgrade applies the same queue,
+ServiceAccount, and Git checkout configuration. The file contains only
+Kubernetes Secret names, not token values:
 
 ```bash
 helm upgrade --install agent-stack-k8s \
   oci://ghcr.io/buildkite/helm/agent-stack-k8s \
+  --version 0.49.0 \
   --namespace buildkite \
   --create-namespace \
-  --set agentStackSecret=buildkite-agent-stack \
-  --set-json='config.tags=["queue=kubernetes"]' \
-  --set config.pod-spec-patch.serviceAccountName=buildkite-agent \
-  --set config.pod-spec-patch.automountServiceAccountToken=true \
-  --set-json='config.pod-spec-patch.containers=[]'
+  --values .buildkite/agent-stack-values.yaml
 ```
 
 The Agent Stack chart schema requires `containers` to be present whenever
@@ -155,8 +181,10 @@ Do not store NASA credentials, registry passwords, kubeconfigs, or 1Password
 share links in either pipeline file. Use short-lived OIDC for publishing and
 Kubernetes Secrets for runtime credentials.
 
-The publishing pipeline currently pushes `latest`, and the test pipeline
-deploys that tag. There is no automatic trigger connecting the two pipeline
+The values file makes the Kubernetes configuration repeatable, but the
+publishing pipeline currently pushes `latest`, and the test pipeline deploys
+that mutable tag. Consequently, the container image contents can still change
+between runs. There is no automatic trigger connecting the two pipeline
 definitions, so run the publishing pipeline before the Kubernetes test
-pipeline. Commit-specific tags and an explicit pipeline trigger would be the
-next step for immutable releases.
+pipeline. Commit-specific tags or image digests and an explicit pipeline
+trigger are the next step for fully reproducible releases.

@@ -1,0 +1,13 @@
+agentStackSecret: buildkite-agent-stack
+
+config:
+  tags:
+    - queue=kubernetes
+  default-checkout-params:
+    gitCredentialsSecret:
+      secretName: github-git-credentials
+  pod-spec-patch:
+    serviceAccountName: buildkite-agent
+    automountServiceAccountToken: true
+    # Required by the Agent Stack chart schema when pod-spec-patch is set.
+    containers: []

@@ -1,6 +1,3 @@
-
-
-test
 # NASA Image Explorer
 
 NASA Image Explorer is a small Docker Compose application that displays NASA's Astronomy Picture of the Day (APOD) and supports looking up an APOD by date.
@@ -35,6 +32,7 @@ The browser requests `GET /api/nasaimage` through Nginx. Nginx proxies the reque
 - Docker Compose v2 (the `docker compose` command)
 - A [NASA API key](https://api.nasa.gov/) stored in 1Password
 - The 1Password CLI (`op`), signed in to the account containing the key
+- For Kubernetes deployment: a running cluster, `kubectl`, and Helm
 
 No local Node.js installation is needed when running the full stack with Docker Compose.
 
@@ -137,7 +135,10 @@ deploy MongoDB because the current application has no database dependency.
 From the repository root, create the deployment namespace first:
 
 ```bash
-kubectl create namespace nasa-image
+kubectl create namespace nasa-image \
+  --dry-run=client \
+  --output=yaml \
+  | kubectl apply -f -
 ```
 
 Then create the NASA token Secret directly in that namespace, replacing the
@@ -176,20 +177,40 @@ Install or upgrade the release using that Secret:
 ```bash
 helm upgrade --install nasa-image ./helm \
   --namespace nasa-image \
-  --set secrets.existingSecret=nasa-api-token
+  --set-string secrets.existingSecret=nasa-api-token \
+  --atomic \
+  --wait \
+  --timeout 5m
 ```
 
 Kubernetes Secrets are namespace-specific. A `nasa-api-token` Secret in the
-`default` namespace is not available to this release. Verify the deployment
-with:
+`default` namespace is not available to this release. Verify the active
+cluster, release, and deployment with:
 
 ```bash
+kubectl config current-context
+helm status nasa-image --namespace nasa-image
 kubectl get pods,services --namespace nasa-image
 ```
 
-Then use the port-forward command printed by Helm and open
-`http://localhost:8080`. For a shared environment, configure `ingress` in a
-separate values file.
+Access the UI by keeping this command running in a terminal:
+
+```bash
+kubectl port-forward --namespace nasa-image \
+  service/nasa-image-app 8080:80
+```
+
+Open [http://localhost:8080](http://localhost:8080). The port-forward process
+must remain running. If the port is available but the page does not respond,
+check the workload and Service endpoints:
+
+```bash
+kubectl get pods,services,endpoints --namespace nasa-image
+kubectl logs deployment/nasa-image-app --namespace nasa-image
+kubectl logs deployment/nasa-image-server --namespace nasa-image
+```
+
+For a shared environment, configure `ingress` in a separate values file.
 
 If the 1Password Kubernetes Operator manages the credential, configure it to
 create a Secret containing `API_TOKEN`, then set `secrets.existingSecret` to
@@ -197,6 +218,26 @@ that Secret's name. Helm does not resolve 1Password share links or `op://`
 references on its own.
 The commands above resolve `op://` references with `op read` before invoking
 `kubectl` or Docker Compose.
+
+### Repeat the Kubernetes deployment
+
+For later runs, verify the context, update the Secret only if the NASA token
+changed, and rerun the same Helm command:
+
+```bash
+kubectl config current-context
+
+helm upgrade --install nasa-image ./helm \
+  --namespace nasa-image \
+  --set-string secrets.existingSecret=nasa-api-token \
+  --atomic \
+  --wait \
+  --timeout 5m
+```
+
+Helm reuses the existing release and applies changes from the chart and values.
+The chart currently deploys the `latest` application image tags with
+`imagePullPolicy: Always`, so publish the desired images before upgrading.
 
 ## Test locally
 

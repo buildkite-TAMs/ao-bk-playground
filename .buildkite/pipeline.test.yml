@@ -38,7 +38,7 @@ steps:
 
       helm upgrade --install "$$HELM_RELEASE" ./helm \
         --namespace "$$KUBE_NAMESPACE" \
-        --atomic \
+        --rollback-on-failure \
         --wait \
         --timeout 5m \
         --set-string "secrets.existingSecret=$$NASA_API_SECRET" \

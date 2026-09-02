@@ -178,7 +178,7 @@ Install or upgrade the release using that Secret:
 helm upgrade --install nasa-image ./helm \
   --namespace nasa-image \
   --set-string secrets.existingSecret=nasa-api-token \
-  --atomic \
+  --rollback-on-failure \
   --wait \
   --timeout 5m
 ```
@@ -210,6 +210,14 @@ kubectl logs deployment/nasa-image-app --namespace nasa-image
 kubectl logs deployment/nasa-image-server --namespace nasa-image
 ```
 
+Access the API  by running this isn the command line 
+```bash
+kubectl port-forward --namespace nasa-image \
+  service/nasa-image-server 3000:3000
+```
+
+
+
 For a shared environment, configure `ingress` in a separate values file.
 
 If the 1Password Kubernetes Operator manages the credential, configure it to
@@ -230,7 +238,7 @@ kubectl config current-context
 helm upgrade --install nasa-image ./helm \
   --namespace nasa-image \
   --set-string secrets.existingSecret=nasa-api-token \
-  --atomic \
+  --rollback-on-failure \
   --wait \
   --timeout 5m
 ```

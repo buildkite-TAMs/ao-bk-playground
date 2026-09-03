@@ -2,6 +2,8 @@
 
 NASA Image Explorer is a small Docker Compose application that displays NASA's Astronomy Picture of the Day (APOD) and supports looking up an APOD by date.
 
+
+
 The application has two services:
 
 | Service | Technology | Host port | Purpose |

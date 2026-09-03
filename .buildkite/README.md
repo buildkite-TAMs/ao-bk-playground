@@ -263,7 +263,6 @@ helm upgrade --install agent-stack-k8s \
 ```
 
 
-
 The Agent Stack chart schema requires `containers` to be present whenever
 `config.pod-spec-patch` is defined. Use an empty array when only setting the
 ServiceAccount. Omitting it produces this validation error:

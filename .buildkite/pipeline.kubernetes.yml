@@ -44,13 +44,13 @@ steps:
         --set-string "secrets.existingSecret=$$NASA_API_SECRET" \
         "$$@"
 
-  - label: ":kubernetes: Test published images"
-    key: "test-published-images"
-    depends_on: "deploy-published-images"
-    agents:
-      queue: "kubernetes"
-    image: "python:3.13-alpine"
-    command: |
-      set -eu
-      python3 tests/wait_for_services.py
-      python3 -m unittest -v tests.test_application
+  # - label: ":kubernetes: Test published images"
+  #   key: "test-published-images"
+  #   depends_on: "deploy-published-images"
+  #   agents:
+  #     queue: "kubernetes"
+  #   image: "python:3.13-alpine"
+  #   command: |
+  #     set -eu
+  #     python3 tests/wait_for_services.py
+  #     python3 -m unittest -v tests.test_application

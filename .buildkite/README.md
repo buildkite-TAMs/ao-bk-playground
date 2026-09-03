@@ -13,6 +13,8 @@ Commands that load stored credentials use 1Password CLI secret references in
 the form `op://Vault/Item/field`. Replace each example reference with the value
 from **Copy Secret Reference** in 1Password and sign in with `op signin` first.
 A `https://share.1password.com/...` share link is not an `op read` reference.
+Placeholders such as `<vault>`, `<item>`, and `<field>` below are not literal
+1Password names and must be replaced.
 
 ## Prerequisites
 
@@ -79,7 +81,8 @@ Configure a separate pipeline to upload
 
 1. `validate-chart` lints and renders the chart.
 2. `deploy-published-images` installs or upgrades the `nasa-image` release and
-   waits for it to become ready. `--atomic` rolls the release back on failure.
+   waits for it to become ready. `--rollback-on-failure` rolls the release back
+   on failure.
 3. `test-published-images` runs `tests/wait_for_services.py` and the Python
    black-box test suite against the in-cluster Services.
 
@@ -106,7 +109,13 @@ kubectl create serviceaccount buildkite-agent \
   --namespace buildkite \
   --dry-run=client --output=yaml \
   | kubectl apply -f -
+
+kubectl get serviceaccount buildkite-agent --namespace buildkite
 ```
+
+The ServiceAccount name is exact. In particular, `builkdite-agent` is a
+different name and will not satisfy the RoleBinding or the Agent Stack pod
+configuration.
 
 Grant that account permission to deploy the application chart:
 
@@ -132,7 +141,7 @@ reference. Create a Kubernetes Secret from that reference:
 ```bash
 kubectl create secret generic buildkite-agent-stack \
   --namespace buildkite \
-  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://Private/Buildkite Agent/credential')"
+  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://<vault>/<agent-token-item>/<field>')"
 ```
 
 To replace an existing token, resolve the same 1Password reference and replace
@@ -141,7 +150,7 @@ the Kubernetes Secret:
 ```bash
 kubectl create secret generic buildkite-agent-stack \
   --namespace buildkite \
-  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://Private/Buildkite Agent/credential')" \
+  --from-literal=BUILDKITE_AGENT_TOKEN="$(op read 'op://<vault>/<agent-token-item>/<field>')" \
   --dry-run=client \
   --output=yaml \
   | kubectl replace -f -
@@ -151,9 +160,9 @@ After replacing the agent token, rerun the Helm upgrade below. If the
 controller does not reconnect, restart it and wait for it to become ready:
 
 ```bash
-kubectl rollout restart deployment/agent-stack-k8s-controller \
+kubectl rollout restart deployment/agent-stack-k8s \
   --namespace buildkite
-kubectl rollout status deployment/agent-stack-k8s-controller \
+kubectl rollout status deployment/agent-stack-k8s \
   --namespace buildkite
 ```
 
@@ -163,7 +172,7 @@ containing Git credentials. Replace the example with your GitHub token's
 
 ```bash
 printf 'https://x-access-token:%s@github.com\n' \
-  "$(op read 'op://Private/GitHub Buildkite/token')" \
+  "$(op read 'op://<vault>/<github-token-item>/<field>')" \
   | kubectl create secret generic github-git-credentials \
       --namespace buildkite \
       --from-file=.git-credentials=/dev/stdin
@@ -173,7 +182,7 @@ To update those credentials later:
 
 ```bash
 printf 'https://x-access-token:%s@github.com\n' \
-  "$(op read 'op://Private/GitHub Buildkite/token')" \
+  "$(op read 'op://<vault>/<github-token-item>/<field>')" \
   | kubectl create secret generic github-git-credentials \
       --namespace buildkite \
       --from-file=.git-credentials=/dev/stdin \
@@ -209,6 +218,7 @@ Verify the release and permissions:
 ```bash
 helm status agent-stack-k8s --namespace buildkite
 kubectl get deployments,pods,serviceaccounts --namespace buildkite
+kubectl get serviceaccount buildkite-agent --namespace buildkite
 
 kubectl auth can-i create deployments.apps \
   --namespace nasa-image \
@@ -217,22 +227,70 @@ kubectl auth can-i create deployments.apps \
 kubectl auth can-i create secrets \
   --namespace nasa-image \
   --as system:serviceaccount:buildkite:buildkite-agent
+
+kubectl auth can-i list secrets \
+  --namespace nasa-image \
+  --as system:serviceaccount:buildkite:buildkite-agent
 ```
 
-Both authorization checks should return `yes`.
+All authorization checks should return `yes`.
 
 Confirm the controller is healthy and connected to the expected queue:
 
 ```bash
-kubectl rollout status deployment/agent-stack-k8s-controller \
+kubectl rollout status deployment/agent-stack-k8s \
   --namespace buildkite
-kubectl logs deployment/agent-stack-k8s-controller \
+kubectl logs deployment/agent-stack-k8s \
   --namespace buildkite --tail=100
 ```
 
-The Buildkite UI should show an agent connected to the `kubernetes` queue.
-Kubernetes job agents are created on demand, so persistent worker pods are not
-expected while no build is running.
+The Buildkite UI should show the stack connected to the `kubernetes` queue.
+The persistent `agent-stack-k8s` pod is the controller and uses its own
+`agent-stack-k8s-controller` ServiceAccount. Kubernetes job agents are created
+on demand and must use the separate `buildkite-agent` ServiceAccount configured
+in `agent-stack-values.yaml`, so persistent worker pods are not expected while
+no build is running.
+
+#### Troubleshoot a job using the `default` ServiceAccount
+
+An authorization error containing this identity means the Buildkite job pod
+did not use the dedicated account:
+
+```text
+User "system:serviceaccount:buildkite:default" cannot list resource "secrets"
+in the namespace "nasa-image"
+```
+
+Check the exact ServiceAccount names, the live Helm values, and the accounts
+used by current pods and jobs:
+
+```bash
+kubectl get serviceaccounts --namespace buildkite
+
+helm get values agent-stack-k8s --namespace buildkite
+
+kubectl get pods --namespace buildkite \
+  -o custom-columns='NAME:.metadata.name,SERVICE_ACCOUNT:.spec.serviceAccountName,STATUS:.status.phase'
+
+kubectl get jobs --namespace buildkite \
+  -o custom-columns='NAME:.metadata.name,SERVICE_ACCOUNT:.spec.template.spec.serviceAccountName'
+```
+
+The live Helm values must contain:
+
+```yaml
+config:
+  pod-spec-patch:
+    serviceAccountName: buildkite-agent
+    automountServiceAccountToken: true
+    containers: []
+```
+
+If the value is absent, rerun the documented `helm upgrade --install` command
+with `--values .buildkite/agent-stack-values.yaml`. If `buildkite-agent` is
+absent from `kubectl get serviceaccounts`, create it with the documented
+idempotent command. Existing job pods do not adopt a changed ServiceAccount;
+cancel or finish the old build and start a new one after correcting the setup.
 
 ### Required Kubernetes setup
 
@@ -248,7 +306,7 @@ Before running the test pipeline:
    ```bash
    kubectl create secret generic nasa-api-token \
      --namespace nasa-image \
-     --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')"
+     --from-literal=API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')"
    ```
 
    To replace it later, use:
@@ -256,7 +314,7 @@ Before running the test pipeline:
    ```bash
    kubectl create secret generic nasa-api-token \
      --namespace nasa-image \
-     --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+     --from-literal=API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')" \
      --dry-run=client --output=yaml \
      | kubectl replace -f -
    ```

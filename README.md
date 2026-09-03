@@ -46,16 +46,16 @@ No local Node.js installation is needed when running the full stack with Docker 
    ```
 
 2. In 1Password, open the NASA credential and copy the API key field's secret
-   reference. It has this form:
+   reference. It has this form; the placeholders are not literal names:
 
    ```text
-   op://Private/NASA API/credential
+   op://<vault>/<nasa-api-item>/<field>
    ```
 
 3. Build and start both services, replacing the example reference with yours:
 
    ```bash
-   API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+   API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')" \
      docker compose up --build
    ```
 
@@ -147,7 +147,7 @@ example 1Password secret reference with yours:
 ```bash
 kubectl create secret generic nasa-api-token \
   --namespace nasa-image \
-  --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')"
+  --from-literal=API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')"
 ```
 
 If the Secret already exists and you need to replace its token, run:
@@ -155,7 +155,7 @@ If the Secret already exists and you need to replace its token, run:
 ```bash
 kubectl create secret generic nasa-api-token \
   --namespace nasa-image \
-  --from-literal=API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+  --from-literal=API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')" \
   --dry-run=client \
   --output=yaml \
   | kubectl replace -f -
@@ -210,13 +210,12 @@ kubectl logs deployment/nasa-image-app --namespace nasa-image
 kubectl logs deployment/nasa-image-server --namespace nasa-image
 ```
 
-Access the API  by running this isn the command line 
+Access the API by keeping this command running in a separate terminal:
+
 ```bash
 kubectl port-forward --namespace nasa-image \
   service/nasa-image-server 3000:3000
 ```
-
-
 
 For a shared environment, configure `ingress` in a separate values file.
 
@@ -257,7 +256,7 @@ The black-box tests in `tests/` expect the frontend at
 Start the application from the repository root:
 
 ```bash
-API_TOKEN="$(op read 'op://Private/NASA API/credential')" \
+API_TOKEN="$(op read 'op://<vault>/<nasa-api-item>/<field>')" \
   docker compose up --build --detach
 ```
 

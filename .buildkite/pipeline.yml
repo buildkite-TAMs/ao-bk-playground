@@ -1,6 +1,8 @@
 steps:
   - key: "docker"
     label: ":docker: Build, Login & Push app/server"
+    agents:
+      queue: "webhook-acquire"
     commands:
       - echo "Building Docker image"
       - docker build --tag packages.buildkite.com/tam-sandbox/ao-bk-playground/app:latest ./app # this is the path to the Dockerfile for the app image in the repo
@@ -47,5 +49,4 @@ steps:
   #   command: |
   #     curl --fail http://localhost:8080
   #     curl --fail http://localhost:3000/api/nasaimage
-
 

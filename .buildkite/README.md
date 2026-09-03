@@ -90,10 +90,10 @@ docker build \
 ```
 
 The Buildkite webhook should send only `job.scheduled` events to the existing
-Webhook.site URL. Configure its Token setting to send an encrypted
-`X-Buildkite-Signature`, not a plain `X-Buildkite-Token`. Start the watcher
-before triggering the pipeline. Replace the placeholder secret references
-with the references copied from 1Password:
+Webhook.site URL. Configure its Token setting to send the plain
+`X-Buildkite-Token` header. Start the watcher before triggering the pipeline.
+Replace the placeholder secret references with the references copied from
+1Password:
 
 ```bash
 WEBHOOK_SITE_TOKEN='<uuid-from-the-webhook.site-url>' \
@@ -127,11 +127,11 @@ whose event is already visible in Webhook.site, run it once with
 `--once --replay-existing`. Use `--dry-run` as well to inspect the generated
 Docker command without starting an agent.
 
-The webhook token is the secret key used to verify Buildkite's HMAC-SHA256
-signature. The watcher requires `BUILDKITE_WEBHOOK_TOKEN`, rejects plain-token
-webhooks, and rejects signatures older than five minutes. Webhook.site is
-acting as an event inbox here; the watcher running on the Docker host is what
-actually starts the agent container.
+The watcher requires `BUILDKITE_WEBHOOK_TOKEN` and compares it with the
+`X-Buildkite-Token` header using a timing-safe comparison. Signature-only
+webhooks and requests with a missing or incorrect token are rejected.
+Webhook.site is acting as an event inbox here; the watcher running on the
+Docker host is what actually starts the agent container.
 
 ## Kubernetes test pipeline
 

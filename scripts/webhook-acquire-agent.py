@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import hmac
 import json
 import os
@@ -15,12 +16,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-## Gets the env variables
+
 def env(name: str, default: str | None = None) -> str | None:
     value = os.environ.get(name)
     return value if value else default
 
-## Gets a specific header from the request
+
 def request_header(request: dict, name: str) -> str | None:
     for key, value in request.get("headers", {}).items():
         if key.lower() != name.lower():
@@ -30,13 +31,34 @@ def request_header(request: dict, name: str) -> str | None:
         return str(value)
     return None
 
-## Verifies the webhook request using Buildkite's plain webhook token
-def verify_webhook(request: dict, _raw_body: str, secret: str | None) -> bool:
+
+def verify_webhook(request: dict, raw_body: str, secret: str | None) -> bool:
     if not secret:
-        return False
+        return True
+
+    signature_header = request_header(request, "x-buildkite-signature")
+    if signature_header:
+        parts = dict(
+            part.strip().split("=", 1)
+            for part in signature_header.split(",")
+            if "=" in part
+        )
+        timestamp = parts.get("timestamp")
+        signature = parts.get("signature")
+        if not timestamp or not signature:
+            return False
+        try:
+            if abs(time.time() - int(timestamp)) > 300:
+                return False
+        except ValueError:
+            return False
+        signed_body = f"{timestamp}.{raw_body}".encode()
+        expected = hmac.new(secret.encode(), signed_body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, signature)
 
     token = request_header(request, "x-buildkite-token")
     return token is not None and hmac.compare_digest(token, secret)
+
 
 def fetch_requests(token: str, api_key: str | None) -> list[dict]:
     query = urllib.parse.urlencode({"sorting": "newest", "per_page": 100})
@@ -134,8 +156,7 @@ def main() -> int:
     first_poll = True
 
     if not webhook_secret:
-        print("BUILDKITE_WEBHOOK_TOKEN is required for token verification", file=sys.stderr)
-        return 2
+        print("warning: BUILDKITE_WEBHOOK_TOKEN is unset; webhook authenticity will not be verified", flush=True)
     print(f"watching Webhook.site for queue={queue}", flush=True)
 
     while True:
